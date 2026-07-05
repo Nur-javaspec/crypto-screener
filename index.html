@@ -141,6 +141,21 @@
   }
   tbody tr:hover{background:var(--panel-2);}
   .sym{font-family:var(--mono);font-weight:700;color:#eaecef;}
+  .cell-val{
+    font-family:var(--mono);
+    color:#eaecef;
+    font-weight:600;
+  }
+  .sym-link{
+    font-family:var(--mono);
+    font-weight:700;
+    color:var(--accent);
+    text-decoration:none;
+    border-bottom:1px dashed transparent;
+  }
+  .sym-link:hover{
+    border-bottom-color:var(--accent);
+  }
   .pos{color:var(--green);}
   .neg{color:var(--red);}
   .flat{color:var(--dim);}
@@ -231,7 +246,7 @@
     statusEl.className = 'status' + (isErr ? ' err' : '');
   }
 
-  const API_BASES = ['https://data-api.binance.vision', 'https://api.binance.com'];
+  const API_BASES = ['https://data-api.binance.vision', 'https://api.binance.com', 'https://api1.binance.com', 'https://api2.binance.com', 'https://api3.binance.com', 'https://api4.binance.com'];
   let activeBase = null;
 
   async function fetchJSON(path){
@@ -385,11 +400,13 @@
         const vwapDevPct = (currentPrice - vwap) / vwap * 100;
 
         const volumeDecay = pumpVolume > 0 ? lastVolume / pumpVolume : null;
+        const pumpOpenTime = pumpCandle[0]; // ms timestamp
 
         rows.push({
           symbol: sym.replace('USDT',''),
           fullSymbol: sym,
           pumpPct,
+          pumpDate: pumpOpenTime,
           sincePumpPct,
           todayPct,
           currentPrice,
@@ -436,9 +453,9 @@
   }
 
   function fmtPrice(v){
-    if(v >= 100) return v.toFixed(2);
-    if(v >= 1) return v.toFixed(4);
-    return v.toFixed(6);
+    if(v >= 100) return `<span class="cell-val">${v.toFixed(2)}</span>`;
+    if(v >= 1) return `<span class="cell-val">${v.toFixed(4)}</span>`;
+    return `<span class="cell-val">${v.toFixed(6)}</span>`;
   }
 
   function fmtDecay(v){
@@ -458,9 +475,21 @@
 
   function fmtOi(v){
     if(v === null || v === undefined || isNaN(v)) return '<span class="flat">—</span>';
-    if(v >= 1e6) return '$' + (v/1e6).toFixed(2) + 'M';
-    if(v >= 1e3) return '$' + (v/1e3).toFixed(0) + 'K';
-    return '$' + v.toFixed(0);
+    if(v >= 1e6) return '<span class="cell-val">$' + (v/1e6).toFixed(2) + 'M</span>';
+    if(v >= 1e3) return '<span class="cell-val">$' + (v/1e3).toFixed(0) + 'K</span>';
+    return '<span class="cell-val">$' + v.toFixed(0) + '</span>';
+  }
+
+  function fmtDate(ms){
+    const d = new Date(ms);
+    const dd = String(d.getUTCDate()).padStart(2,'0');
+    const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+    return `<span class="cell-val">${dd}.${mm}</span>`;
+  }
+
+  function tvLink(fullSymbol, displaySymbol){
+    const url = `https://www.tradingview.com/chart/?symbol=BINANCE:${fullSymbol}`;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="sym-link">${displaySymbol}</a>`;
   }
 
   function renderTable(includeDeriv){
@@ -475,6 +504,7 @@
       <th data-key="oiUsd" class="${sortKey==='oiUsd'?'sorted':''}">OI $</th>` : '';
     let html = `<table><thead><tr>
       <th data-key="symbol">Монета</th>
+      <th data-key="pumpDate" class="${sortKey==='pumpDate'?'sorted':''}">Дата пампа</th>
       <th data-key="pumpPct" class="${sortKey==='pumpPct'?'sorted':''}">Памп ${daysAgo}д назад</th>
       <th data-key="sincePumpPct" class="${sortKey==='sincePumpPct'?'sorted':''}">С момента пампа</th>
       <th data-key="todayPct" class="${sortKey==='todayPct'?'sorted':''}">Сегодня</th>
@@ -488,7 +518,8 @@
         <td>${fmtFunding(r.fundingPct)}</td>
         <td>${fmtOi(r.oiUsd)}</td>` : '';
       html += `<tr>
-        <td class="sym">${r.symbol}</td>
+        <td class="sym">${tvLink(r.fullSymbol, r.symbol)}</td>
+        <td>${fmtDate(r.pumpDate)}</td>
         <td>${fmtPct(r.pumpPct)}</td>
         <td>${fmtPct(r.sincePumpPct)}</td>
         <td>${fmtPct(r.todayPct)}</td>
